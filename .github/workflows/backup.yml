@@ -48,6 +48,8 @@ jobs:
           fi
 
       - name: Crear Release GitHub con archivo adjunto
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TODAY=${{ steps.fecha.outputs.today }}
           gh release create backup-$TODAY \
@@ -57,6 +59,8 @@ jobs:
             --repo $GITHUB_REPOSITORY
 
       - name: Limitar releases a los últimos 7
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           RELEASES=$(gh release list --limit 100 --repo $GITHUB_REPOSITORY | awk '{print $1}')
           COUNT=$(echo "$RELEASES" | wc -l)
