@@ -21,7 +21,7 @@ jobs:
       - name: Descargar documento público
         run: |
           TODAY=$(date -u +'%Y-%m-%d')
-          curl -L -o "backup/$TODAY/DocumentoJurisprudencia.doc" \
+          curl -k -L -o "backup/$TODAY/DocumentoJurisprudencia.doc" \
             "https://www.csj.gov.py/jurisprudencia/home/DocumentoJurisprudencia?codigo=18"
 
       - name: Calcular hash SHA256
