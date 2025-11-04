@@ -1,0 +1,68 @@
+name: Backup diario CSJ con Release y retención limitada
+
+on:
+  schedule:
+    - cron: "0 12 * * *"  # Todos los días a las 12:00 UTC
+  workflow_dispatch:       # Permite ejecución manual desde Actions
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Crear carpeta por fecha
+        run: |
+          TODAY=$(date -u +'%Y-%m-%d')
+          mkdir -p "backup/$TODAY"
+
+      - name: Descargar documento público
+        run: |
+          TODAY=$(date -u +'%Y-%m-%d')
+          curl -L -o "backup/$TODAY/DocumentoJurisprudencia.doc" \
+            "https://www.csj.gov.py/jurisprudencia/home/DocumentoJurisprudencia?codigo=18"
+
+      - name: Calcular hash SHA256
+        run: |
+          TODAY=$(date -u +'%Y-%m-%d')
+          sha256sum "backup/$TODAY/DocumentoJurisprudencia.doc" > "backup/$TODAY/metadata.txt"
+          echo "Fecha UTC: $(date -u)" >> "backup/$TODAY/metadata.txt"
+          echo "Fuente: https://www.csj.gov.py/jurisprudencia/home/DocumentoJurisprudencia?codigo=18" >> "backup/$TODAY/metadata.txt"
+
+      - name: Commit y push de backup
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add backup/$TODAY/
+          if ! git diff --quiet --cached; then
+            git commit -m "Backup CSJ $TODAY"
+            git push origin main
+          else
+            echo "No hay cambios nuevos."
+
+      - name: Crear Release GitHub
+        uses: ncipollo/release-action@v1
+        with:
+          tag: "backup-$(date -u +'%Y-%m-%d')"
+          name: "Backup CSJ $(date -u +'%Y-%m-%d')"
+          body: "Backup diario de documento público CSJ. Hash SHA256 incluido en metadata.txt."
+          files: "backup/$(date -u +'%Y-%m-%d')/DocumentoJurisprudencia.doc"
+
+      - name: Limitar releases a los últimos 7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Listar releases ordenados por fecha (más recientes primero)
+          RELEASES=$(gh release list --limit 100 --repo $GITHUB_REPOSITORY | awk '{print $1}')
+          COUNT=$(echo "$RELEASES" | wc -l)
+          MAX_RELEASES=7
+          if [ "$COUNT" -gt "$MAX_RELEASES" ]; then
+            NUM_TO_DELETE=$((COUNT - MAX_RELEASES))
+            TO_DELETE=$(echo "$RELEASES" | tail -n $NUM_TO_DELETE)
+            for r in $TO_DELETE; do
+              echo "Borrando release antigua: $r"
+              gh release delete "$r" --repo $GITHUB_REPOSITORY --yes
+            done
+          fi
