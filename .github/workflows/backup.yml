@@ -18,7 +18,7 @@ jobs:
           TODAY=$(date -u +'%Y-%m-%d')
           mkdir -p "backup/$TODAY"
 
-      - name: Descargar documento público
+      - name: Descargar documento público ignorando SSL
         run: |
           TODAY=$(date -u +'%Y-%m-%d')
           curl -k -L -o "backup/$TODAY/DocumentoJurisprudencia.doc" \
