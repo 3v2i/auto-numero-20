@@ -1,4 +1,4 @@
-name: Backup diario CSJ con Release, retención e index HTML
+name: Backup diario CSJ con Release y retención limitada
 
 on:
   schedule:
@@ -73,34 +73,3 @@ jobs:
               gh release delete "$r" --repo $GITHUB_REPOSITORY --yes
             done
           fi
-
-      - name: Generar index HTML de backups
-        run: |
-          INDEX_FILE="backup/index.html"
-          echo "<!DOCTYPE html>" > $INDEX_FILE
-          echo "<html><head><meta charset='UTF-8'><title>Backups CSJ</title></head><body>" >> $INDEX_FILE
-          echo "<h1>Backups CSJ</h1><ul>" >> $INDEX_FILE
-
-          for DIR in backup/*/ ; do
-            [ "$DIR" = "backup/index.html" ] && continue
-            DATE=$(basename $DIR)
-            FILE="$DIR/DocumentoJurisprudencia.doc"
-            META="$DIR/metadata.txt"
-
-            if [ -f "$FILE" ]; then
-              HASH=$(grep -oE '^[a-f0-9]{64}' "$META" || echo "N/A")
-              ORIG=$(grep 'Nombre original:' "$META" | cut -d':' -f2- | xargs || echo "N/A")
-              echo "<li><a href='$FILE'>$DATE</a> - SHA256: $HASH - Nombre original: $ORIG</li>" >> $INDEX_FILE
-            fi
-          done
-
-          echo "</ul></body></html>" >> $INDEX_FILE
-
-      - name: Commit y push del index HTML
-        run: |
-          git add backup/index.html
-          if ! git diff --quiet --cached; then
-            git commit -m "Actualizar index HTML de backups CSJ ${{ steps.fecha.outputs.today }}"
-            git push origin main
-          else
-            echo "No hay cambios nuevos en index.html."
