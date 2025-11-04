@@ -3,7 +3,7 @@ name: Backup diario CSJ con Release y retención limitada
 on:
   schedule:
     - cron: "0 12 * * *"  # Todos los días a las 12:00 UTC
-  workflow_dispatch:       # Permite ejecución manual desde Actions
+  workflow_dispatch:       # Permite ejecución manual
 
 jobs:
   backup:
@@ -13,21 +13,25 @@ jobs:
       - name: Checkout del repositorio
         uses: actions/checkout@v4
 
+      - name: Definir fecha
+        id: fecha
+        run: echo "today=$(date -u +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
       - name: Crear carpeta por fecha
         run: |
-          TODAY=$(date -u +'%Y-%m-%d')
-          mkdir -p "backup/$TODAY"
+          mkdir -p "backup/${{ steps.fecha.outputs.today }}"
 
       - name: Descargar documento público ignorando SSL
         run: |
-          TODAY=$(date -u +'%Y-%m-%d')
-          curl -k -L -o "backup/$TODAY/DocumentoJurisprudencia.doc" \
+          curl -k -L -o "backup/${{ steps.fecha.outputs.today }}/DocumentoJurisprudencia.doc" \
             "https://www.csj.gov.py/jurisprudencia/home/DocumentoJurisprudencia?codigo=18"
 
-      - name: Calcular hash SHA256
+      - name: Calcular hash SHA256 y registrar nombre original
         run: |
-          TODAY=$(date -u +'%Y-%m-%d')
+          TODAY=${{ steps.fecha.outputs.today }}
+          ORIGINAL_NAME="562436A38CDAB4A921A78FA09AFFC066.doc"
           sha256sum "backup/$TODAY/DocumentoJurisprudencia.doc" > "backup/$TODAY/metadata.txt"
+          echo "Nombre original: $ORIGINAL_NAME" >> "backup/$TODAY/metadata.txt"
           echo "Fecha UTC: $(date -u)" >> "backup/$TODAY/metadata.txt"
           echo "Fuente: https://www.csj.gov.py/jurisprudencia/home/DocumentoJurisprudencia?codigo=18" >> "backup/$TODAY/metadata.txt"
 
@@ -35,27 +39,25 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add backup/$TODAY/
+          git add backup/${{ steps.fecha.outputs.today }}/
           if ! git diff --quiet --cached; then
-            git commit -m "Backup CSJ $TODAY"
+            git commit -m "Backup CSJ ${{ steps.fecha.outputs.today }}"
             git push origin main
           else
             echo "No hay cambios nuevos."
           fi
 
-      - name: Crear Release GitHub
-        uses: ncipollo/release-action@v1
-        with:
-          tag: "backup-$(date -u +'%Y-%m-%d')"
-          name: "Backup CSJ $(date -u +'%Y-%m-%d')"
-          body: "Backup diario de documento público CSJ. Hash SHA256 incluido en metadata.txt."
-          files: "backup/$(date -u +'%Y-%m-%d')/DocumentoJurisprudencia.doc"
+      - name: Crear Release GitHub con archivo adjunto
+        run: |
+          TODAY=${{ steps.fecha.outputs.today }}
+          gh release create backup-$TODAY \
+            "backup/$TODAY/DocumentoJurisprudencia.doc" \
+            --title "Backup CSJ $TODAY" \
+            --notes "Backup diario de documento público CSJ. Hash SHA256 y nombre original incluido en metadata.txt." \
+            --repo $GITHUB_REPOSITORY
 
       - name: Limitar releases a los últimos 7
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Listar releases ordenados por fecha (más recientes primero)
           RELEASES=$(gh release list --limit 100 --repo $GITHUB_REPOSITORY | awk '{print $1}')
           COUNT=$(echo "$RELEASES" | wc -l)
           MAX_RELEASES=7
