@@ -41,6 +41,7 @@ jobs:
             git push origin main
           else
             echo "No hay cambios nuevos."
+          fi
 
       - name: Crear Release GitHub
         uses: ncipollo/release-action@v1
