@@ -58,13 +58,13 @@ jobs:
             --notes "Backup diario de documento público CSJ. Hash SHA256 y nombre original incluido en metadata.txt." \
             --repo $GITHUB_REPOSITORY
 
-      - name: Limitar releases a los últimos 7
+      - name: Limitar releases a los últimos 20
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           RELEASES=$(gh release list --limit 100 --repo $GITHUB_REPOSITORY | awk '{print $1}')
           COUNT=$(echo "$RELEASES" | wc -l)
-          MAX_RELEASES=7
+          MAX_RELEASES=20
           if [ "$COUNT" -gt "$MAX_RELEASES" ]; then
             NUM_TO_DELETE=$((COUNT - MAX_RELEASES))
             TO_DELETE=$(echo "$RELEASES" | tail -n $NUM_TO_DELETE)
