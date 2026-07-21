@@ -62,7 +62,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          RELEASES=$(gh release list --limit 100 --repo $GITHUB_REPOSITORY | awk '{print $3}')
+          RELEASES=$(gh release list --limit 100 --repo $GITHUB_REPOSITORY | awk '{print $1-$3}')
           COUNT=$(echo "$RELEASES" | wc -l)
           MAX_RELEASES=20
           if [ "$COUNT" -gt "$MAX_RELEASES" ]; then
